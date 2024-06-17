@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, Animated, StyleSheet, FlatList } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
 import Header from './Header';
 import Config from './Config';
 
-const Home = ({ navigation, routines }) => {
+const Home = ({ navigation }) => {
   const [showConfig, setShowConfig] = useState(false);
   const [configPosition] = useState(new Animated.Value(1000));
-  const [selectedRoutine, setSelectedRoutine] = useState(null);
-  const [completedTimes, setCompletedTimes] = useState(0);
-  const [completedDays, setCompletedDays] = useState([]); // Track completed days
+  const [routines, setRoutines] = useState([]);
+  const progressBarWidths = useRef([]).current;
 
   useEffect(() => {
     if (showConfig) {
@@ -33,83 +32,92 @@ const Home = ({ navigation, routines }) => {
   };
 
   const handleDoneConfig = useCallback((configData) => {
-    setSelectedRoutine(configData);
-    setCompletedTimes(0);
-    setCompletedDays([]); // Reset completed days when a new routine is selected
+    setRoutines((prev) => [...prev, { ...configData, completedTimes: 0, completedDays: [] }]);
     setShowConfig(false);
   }, []);
 
-  const handleTimesCompleted = () => {
-    if (selectedRoutine && completedTimes < selectedRoutine.timesPerDay) {
-      setCompletedTimes((prev) => {
-        const newCompletedTimes = prev + 1;
-        if (newCompletedTimes === selectedRoutine.timesPerDay) {
-          // Mark the first day as completed
-          setCompletedDays((days) => [...days, 1]);
+  const handleTimesCompleted = (index) => {
+    setRoutines((prevRoutines) => {
+      const newRoutines = [...prevRoutines];
+      const routine = newRoutines[index];
+      if (routine.completedTimes < routine.timesPerDay) {
+        routine.completedTimes += 1;
+        if (routine.completedTimes === routine.timesPerDay) {
+          routine.completedDays.push(new Date().getDate());
         }
-        return newCompletedTimes;
-      });
-    }
+      }
+      return newRoutines;
+    });
+
+    const progress = (routines[index].completedTimes / routines[index].timesPerDay) * 100;
+    Animated.timing(progressBarWidths[index], {
+      toValue: progress,
+      duration: 500,
+      useNativeDriver: false,
+    }).start();
   };
 
-  const renderDayCube = (day) => {
-    const dayStyle = completedDays.includes(day) ? [styles.completedCube, { backgroundColor: selectedRoutine.selectedColor }] : styles.incompleteCube;
-    
+  const renderRoutine = ({ item, index }) => {
+    if (!progressBarWidths[index]) {
+      progressBarWidths[index] = new Animated.Value(0);
+    }
+
+    const days = Array.from({ length: 30 }, (_, i) => i + 1);
+    const dayStyle = (day) =>
+      item.completedDays.includes(day) ? [styles.completedCube, { backgroundColor: item.selectedColor }] : styles.incompleteCube;
+
     return (
-      <TouchableOpacity
-        key={day}
-        style={[styles.dayCube, dayStyle]}
-        onPress={() => toggleDayCompletion(day)}
-      >
-        <Text style={styles.dayText}>{day}</Text>
-      </TouchableOpacity>
+      <View style={[styles.noRoutinesContainer, { borderColor: item.selectedColor }]}>
+        <View style={styles.daysContainer}>
+          {days.map((day) => (
+            <TouchableOpacity key={day} style={[styles.dayCube, dayStyle(day)]} activeOpacity={.777}>
+              <Text style={styles.dayText}>{day}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: "space-between" }}>
+          <View style={[styles.emojiContainer, { backgroundColor: item.selectedColor }]}>
+            <Text style={styles.routineEmoji}>{item.selectedEmoji || "🎯"}</Text>
+          </View>
+          <View style={{ right: 80 }}>
+            <Text style={styles.noRoutinesText}>{item.routineName || "My goal"}</Text>
+            <Text style={styles.noRoutinesMiniText}>{item.routineDescription || "Work hard to achieve your goals, or others will achieve them instead."}</Text>
+          </View>
+          <TouchableOpacity onPress={() => handleTimesCompleted(index)} style={styles.addButton}>
+            <FontAwesome name="check" size={24} color={item.selectedColor} />
+            <Text style={styles.timesText}>{item.completedTimes}/{item.timesPerDay}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.progressBarContainer}>
+          <Animated.View style={[styles.progressBar, { width: progressBarWidths[index].interpolate({ inputRange: [0, 100], outputRange: ['1%', '100%'] }), backgroundColor: item.selectedColor }]} />
+        </View>
+      </View>
     );
   };
-
-  const toggleDayCompletion = (day) => {
-    setCompletedDays((days) => {
-      if (days.includes(day)) {
-        return days.filter((d) => d !== day);
-      } else {
-        return [...days, day];
-      }
-    });
-  };
-
-  const days = Array.from({ length: 30 }, (_, index) => index + 1);
 
   return (
     <View style={styles.container}>
       <View style={styles.headerTop}>
         <Text style={styles.headerTitle}>DailyRoutine</Text>
         <TouchableOpacity onPress={handleAddRoutine} style={styles.plusContainer}>
-          <FontAwesome name="plus" size={24} color="#999" />
+          <FontAwesome name="plus" size={16} color="#999" />
         </TouchableOpacity>
       </View>
       <View style={styles.content}>
-        {selectedRoutine ? (
-          <View style={[styles.noRoutinesContainer, { borderColor: selectedRoutine.selectedColor }]}>
-            <View style={styles.daysContainer}>
-              {days.map((day) => renderDayCube(day))}
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: "space-between" }}>
-              <View style={[styles.emojiContainer, { backgroundColor: selectedRoutine.selectedColor }]}>
-                <Text style={styles.routineEmoji}>{selectedRoutine.selectedEmoji}</Text>
-              </View>
-              <View style={{ right: 80, }}>
-                <Text style={styles.noRoutinesText}>{selectedRoutine.routineName}</Text>
-                <Text style={styles.noRoutinesMiniText}>{selectedRoutine.routineDescription}</Text>
-              </View>
-              <TouchableOpacity onPress={handleTimesCompleted} style={styles.addButton}>
-                <FontAwesome name="check" size={24} color={selectedRoutine.selectedColor} />
-                <Text style={styles.timesText}>{completedTimes}/{selectedRoutine.timesPerDay}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        {routines.length ? (
+          <FlatList
+            data={routines}
+            renderItem={renderRoutine}
+            keyExtractor={(item, index) => index.toString()}
+          />
         ) : (
-          <View style={styles.noRoutinesContainer}>
+          <View style={styles.noRoutinesContainer2}>
             <View style={styles.daysContainer}>
-              {days.map((day) => renderDayCube(day))}
+              {Array.from({ length: 30 }, (_, i) => i + 1).map((day) => (
+                <TouchableOpacity key={day} style={[styles.dayCube, styles.incompleteCube]}>
+                  <Text style={styles.dayText}>{day}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
             <View style={{ flexDirection: 'row', justifyContent: "space-between" }}>
               <View>
@@ -119,6 +127,9 @@ const Home = ({ navigation, routines }) => {
               <TouchableOpacity onPress={handleAddRoutine} style={styles.addButton}>
                 <FontAwesome name="plus" size={24} color="#999" />
               </TouchableOpacity>
+            </View>
+            <View style={styles.progressBarContainer2}>
+
             </View>
           </View>
         )}
@@ -130,10 +141,6 @@ const Home = ({ navigation, routines }) => {
       </Animated.View>
     </View>
   );
-};
-
-const formatDate = (date) => {
-  return `${date.getMonth() + 1} - ${date.getDate()} - ${date.getFullYear()}`;
 };
 
 const styles = StyleSheet.create({
@@ -163,36 +170,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  routineContainer: {
-    backgroundColor: "#222",
-    padding: 20,
-    borderRadius: 15,
-    marginBottom: 20,
-  },
-  routineName: {
-    fontSize: 24,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  routineDescription: {
-    fontSize: 18,
-    color: 'white',
-    marginTop: 10,
-  },
-  routineDetails: {
-    fontSize: 16,
-    color: 'white',
-    marginTop: 5,
-  },
   noRoutinesContainer: {
     backgroundColor: "#222",
     padding: 8,
     width: 390,
-    height: 190,
+    height: 210,
     borderRadius: 15,
-    marginTop: -500,
     borderWidth: 1,
     borderColor: "white",
+    marginBottom: 10,
+  },
+  noRoutinesContainer2: {
+    backgroundColor: "#222",
+    padding: 8,
+    width: 390,
+    height: 210,
+    marginTop: -470,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "white",
+    marginBottom: 10,
   },
   noRoutinesText: {
     fontSize: 34,
@@ -205,7 +202,6 @@ const styles = StyleSheet.create({
     color: 'white',
     width: 230,
     left: 5
-    
   },
   addButton: {
     marginTop: 5,
@@ -219,8 +215,8 @@ const styles = StyleSheet.create({
     right: 0,
   },
   plusContainer: {
-    width: 40,
-    height: 40,
+    width: 30,
+    height: 30,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -257,15 +253,43 @@ const styles = StyleSheet.create({
   emojiContainer: {
     width: 60,
     height: 60,
-    backgroundColor: "#333",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 12,
-    marginTop: 6,
+    backgroundColor: '#444',
+    borderRadius: 20,
+    marginTop: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   routineEmoji: {
     fontSize: 40,
-  }
+  },
+  progressBarContainer: {
+    height: 15,
+    backgroundColor: '#333',
+    borderRadius: 10,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  progressBarContainer2: {
+    height: 15,
+    backgroundColor: '#333',
+    borderRadius: 10,
+    top: 20,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 12,
+  },
+  configContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#222',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
 });
 
 export default Home;

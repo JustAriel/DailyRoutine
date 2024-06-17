@@ -16,7 +16,7 @@ const Config = ({ onDone }) => {
   const [routineName, setRoutineName] = useState('');
   const [routineDescription, setRoutineDescription] = useState('');
 
-  const colorOptions = ["#777", '#fff', '#666', '#999', 'orange', 'green', 'darkred'];
+  const colorOptions = ["#fff", '#777', '#666', '#999', 'orange', 'green', '##115DC7'];
 
   useEffect(() => {
     if (notificationsEnabled) {
@@ -43,7 +43,7 @@ const Config = ({ onDone }) => {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Daily Reminder',
-        body: 'It\'s time to check your routine!',
+        body: "It's time to check up your routine!",
       },
       trigger: {
         hour: notificationDate.getHours(),
@@ -105,14 +105,16 @@ const Config = ({ onDone }) => {
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Routine Name"
+            placeholder="Routine Name (15 Chars)"
             placeholderTextColor="#999"
             value={routineName}
+            maxLength={15}
             onChangeText={(text) => setRoutineName(text)}
           />
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
-            placeholder="Routine Description"
+            placeholder="Routine Description (80 Chars)"
+            maxLength={80}
             placeholderTextColor="#999"
             value={routineDescription}
             onChangeText={(text) => setRoutineDescription(text)}
