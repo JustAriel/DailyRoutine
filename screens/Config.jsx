@@ -16,7 +16,7 @@ const Config = ({ onDone }) => {
   const [routineName, setRoutineName] = useState('');
   const [routineDescription, setRoutineDescription] = useState('');
 
-  const colorOptions = ["#fff", '#777', '#666', '#999', 'orange', 'green', '##115DC7'];
+  const colorOptions = ["#fff", '#777', '#666', '#999', 'orange', 'green', '#115DC7'];
 
   useEffect(() => {
     if (notificationsEnabled) {

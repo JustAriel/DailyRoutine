@@ -129,7 +129,6 @@ const Home = ({ navigation }) => {
               </TouchableOpacity>
             </View>
             <View style={styles.progressBarContainer2}>
-
             </View>
           </View>
         )}
